@@ -37,6 +37,9 @@ public class SS_Tree : SpawnableStructure
         Chunk chunk = world.GetChunk(cc);
         List<ChunkCoord> neighboursToUpdate = new List<ChunkCoord>();
         int y = chunk.heightMap[x, z] + 1;
+        if (!world.blockTypes[chunk.GetBlockType(x, y - 1, z)].blockName.Equals("Grass") &&
+            !world.blockTypes[chunk.GetBlockType(x, y - 1, z)].blockName.Equals("Dirt"))
+            return false;
         for (int i = 0; i < 10; i++)
         {
             chunk.EditVoxelWithoutMeshUpdate(x, y + i, z, 4);

@@ -1,4 +1,5 @@
-﻿using System.CodeDom.Compiler;
+﻿using System;
+using System.CodeDom.Compiler;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,6 +15,7 @@ public class Chunk
     private bool _isActive;
     private bool activeOnInit;
     public bool isVoxelMapPopulated = false;
+    public Vector3 position;
 
     int vertexIndex = 0;
     List<Vector3> vertices = new List<Vector3>();
@@ -27,9 +29,11 @@ public class Chunk
     SpawnableStructure spawnableStructures;
     bool SpawnableStructuresGenerated = false;
     World world;
+    WorldGeneration worldGen;
 
     public Chunk(World _world, ChunkCoord _coord, bool generateOnLoad, bool _activeOnInit) {
         world = _world;
+        worldGen = world.worldGen;
         coord = _coord;
         _isActive = true;
         spawnableStructures = new SS_Tree(world);
@@ -51,6 +55,7 @@ public class Chunk
         chunkObject.transform.SetParent(world.transform);
         chunkObject.transform.position = new Vector3(coord.x * VoxelData.ChunkWidth, 0f, coord.z * VoxelData.ChunkWidth);
         chunkObject.name = "Chunk " + coord.x + " " + coord.z;
+        position = chunkObject.transform.position;
 
         PopulateVoxelMap();
         UpdateChunk();
@@ -64,14 +69,14 @@ public class Chunk
         for (int y = 0; y < VoxelData.ChunkHeight; y++) {
             for (int x = 0; x < VoxelData.ChunkWidth; x++) {
                 for (int z = 0; z < VoxelData.ChunkWidth; z++) {
-                    voxelMap[x, y, z] = world.GetVoxel(new Vector3(x, y, z) + position);
+                    voxelMap[x, y, z] = worldGen.GenerateVoxel(new Vector3(x, y, z) + position);
                 }
             }
         }
         UpdateHeightMap();
         isVoxelMapPopulated = true;
         //Adds chunk to chunks in need of spawnable structures
-        world.GenerateSpawnableStructures(coord);
+        worldGen.GenerateSpawnableStructures(coord);
     }
 
     public void UpdateHeightMap(){
@@ -131,6 +136,25 @@ public class Chunk
               
             }
         }
+    }
+
+    //Use global coords
+    public byte GetBlockType(Vector3 globalPos) { 
+        if (IsVoxelInChunk(globalPos)) {
+            int[] coordinates = GetVoxelLocalCoordsFromGlobalVector3(globalPos);
+            return voxelMap[coordinates[0], coordinates[1], coordinates[2]];
+        } else {
+            return world.GetBlockType(globalPos);
+        }
+    }
+
+    //Use local coords
+    public byte GetBlockType(int localX, int localY, int localZ)
+    {
+        if (IsVoxelInChunk(localX, localY, localZ))
+            return voxelMap[localX, localY, localZ];
+        else
+            return 0;
     }
 
     public void EditVoxel(Vector3 pos, byte newBlockID){
@@ -241,6 +265,13 @@ public class Chunk
         return !(x < 0 || x > VoxelData.ChunkWidth - 1 || y < 0 || y > VoxelData.ChunkHeight - 1 || z < 0 || z > VoxelData.ChunkWidth - 1);
     }
 
+    public bool IsVoxelInChunk(Vector3 globalPos){
+        int[] coordinates = GetVoxelLocalCoordsFromGlobalVector3(globalPos);
+        return !(coordinates[0] < 0 || coordinates[0] > VoxelData.ChunkWidth - 1 ||
+                    coordinates[1] < 0 || coordinates[1] > VoxelData.ChunkHeight - 1 ||
+                    coordinates[2] < 0 || coordinates[2] > VoxelData.ChunkWidth - 1);
+    }
+
     public byte GetVoxelFromGlobalVector3(Vector3 pos){
         int[] localCoords = GetVoxelLocalCoordsFromGlobalVector3(pos);
         return voxelMap[localCoords[0], localCoords[1], localCoords[2]];
@@ -263,9 +294,6 @@ public class Chunk
                 chunkObject.SetActive(value); }
     }
 
-    public Vector3 position {
-        get { return chunkObject.transform.position; }
-    }
 
 }
 
