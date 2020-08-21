@@ -2,17 +2,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Inventory : MonoBehaviour
-{
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
+public interface Inventory{
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+    Item GetItem(short index);
+    short GetInventoryVolume();
+    short GetMaxInventoryVolume();
+    short GetAllocatedSlots();
+
 }

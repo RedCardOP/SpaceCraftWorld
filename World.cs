@@ -64,8 +64,8 @@ public class World : MonoBehaviour
         if (!isVoxelInWorld(globalPos))
             return false;
         if (chunks[currentChunk.x, currentChunk.z] != null && chunks[currentChunk.x, currentChunk.z].isVoxelMapPopulated)
-            return blockTypes[chunks[currentChunk.x, currentChunk.z].GetVoxelFromGlobalVector3(globalPos)].isSolid;
-        return blockTypes[GetBlockType(globalPos)].isSolid;
+            return chunks[currentChunk.x, currentChunk.z].GetVoxelFromGlobalVector3(globalPos).isSolid;
+        return GetBlockType(globalPos).isSolid;
 
     }
 
@@ -76,8 +76,10 @@ public class World : MonoBehaviour
         if (!isVoxelInWorld(globalPos))
             return false;
         if (chunks[currentChunk.x, currentChunk.z] != null && chunks[currentChunk.x, currentChunk.z].isVoxelMapPopulated)
-            return blockTypes[chunks[currentChunk.x, currentChunk.z].GetVoxelFromGlobalVector3(globalPos)].isTransparent;
-        return blockTypes[worldGen.GenerateVoxel(globalPos)].isTransparent;
+        {
+            return chunks[currentChunk.x, currentChunk.z].GetVoxelFromGlobalVector3(globalPos).isTransparent;
+        }
+        return worldGen.GenerateVoxel(globalPos).isTransparent;
     }
     
     void CheckViewDistance()
@@ -136,7 +138,7 @@ public class World : MonoBehaviour
                 globalPos.y >= 0 && globalPos.y < VoxelData.ChunkHeight &&
                 globalPos.z >= 0 && globalPos.z < VoxelData.WorldSizeInVoxels);
     }
-    public byte GetBlockType(Vector3 globalPos) {
+    public BlockType GetBlockType(Vector3 globalPos) {
         return GetChunk(globalPos).GetBlockType(globalPos);
     }
     public ChunkCoord GetChunkCoord(Vector3 globalPos) {
@@ -176,46 +178,4 @@ public class World : MonoBehaviour
         set { _playerLastChunkCoord = value; }
     }
 
-}
-
-[System.Serializable]
-public class BlockType {
-    public string blockName;
-    public bool isSolid;
-    public bool isTransparent;
-
-    [Header("Texture ID Values")]
-    public int backFaceTexture;
-    public int frontFaceTexture;
-    public int topFaceTexture;
-    public int bottomFaceTexture;
-    public int leftFaceTexture;
-    public int rightFaceTexture;
-
-
-
-    public int GetTextureID(int faceIndex) {
-
-        switch (faceIndex) {
-
-            case 0:
-                return backFaceTexture;
-            case 1:
-                return frontFaceTexture;
-            case 2:
-                return topFaceTexture;
-            case 3:
-                return bottomFaceTexture;
-            case 4:
-                return leftFaceTexture;
-            case 5:
-                return rightFaceTexture;
-            default:
-                Debug.Log("Texture is fucked");
-                return 0;
-
-        }
-
-    }
-    
 }

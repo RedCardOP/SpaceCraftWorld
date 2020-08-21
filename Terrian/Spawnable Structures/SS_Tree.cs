@@ -5,30 +5,25 @@ using UnityEngine;
 public class SS_Tree : SpawnableStructure
 {
     World world;
-    public SS_Tree(World world) {
+    public SS_Tree(World world) : base(PopulatorTier.CHUNK) {
         this.world = world;
     }
-    public int GetMinStructuresPerPopulator()
+    public override int GetMinStructuresPerPopulator()
     {
         throw new System.NotImplementedException();
     }
 
-    public PopulatorTier GetPopulatorTier()
+    public override float GetTargetStructuresPerPopulator()
     {
         throw new System.NotImplementedException();
     }
 
-    public float GetTargetStructuresPerPopulator()
+    public override bool Populate(Vector3 pos)
     {
         throw new System.NotImplementedException();
     }
 
-    public bool Populate(Vector3 pos)
-    {
-        throw new System.NotImplementedException();
-    }
-
-    public bool Populate(ChunkCoord cc)
+    public override bool Populate(ChunkCoord cc)
     {
         int seed = world.seed ^ cc.x ^ cc.z * 1000;
         Random.InitState(seed);
@@ -42,7 +37,7 @@ public class SS_Tree : SpawnableStructure
             return false;
         for (int i = 0; i < 10; i++)
         {
-            chunk.EditVoxelWithoutMeshUpdate(x, y + i, z, 4);
+            chunk.EditVoxelWithoutMeshUpdate(x, y + i, z, BlockTypes.WOOD);
         }
         for (int yLeaves = y + 8; yLeaves < y + 11; yLeaves++)
         {
@@ -52,12 +47,12 @@ public class SS_Tree : SpawnableStructure
                 {
                     if (i != 0 || j != 0) {
                         if (chunk.IsVoxelInChunk(x + i, yLeaves, z + j))
-                            chunk.EditVoxelWithoutMeshUpdate(x + i, yLeaves, z + j, 7);
+                            chunk.EditVoxelWithoutMeshUpdate(x + i, yLeaves, z + j, BlockTypes.LEAVES);
                         else {
                             Vector3 globalPosition = chunk.position + new Vector3(x + i, yLeaves, z + j);
                             Chunk neighbourToEdit = world.GetChunk(globalPosition);
                             int[] localCoords = neighbourToEdit.GetVoxelLocalCoordsFromGlobalVector3(globalPosition);
-                            neighbourToEdit.EditVoxelWithoutMeshUpdate(localCoords[0], localCoords[1], localCoords[2], 7);
+                            neighbourToEdit.EditVoxelWithoutMeshUpdate(localCoords[0], localCoords[1], localCoords[2], BlockTypes.LEAVES);
                             if (!neighboursToUpdate.Contains(neighbourToEdit.coord))
                                 neighboursToUpdate.Add(neighbourToEdit.coord);
                         }

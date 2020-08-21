@@ -69,7 +69,7 @@ public class Chunk
         for (int y = 0; y < VoxelData.ChunkHeight; y++) {
             for (int x = 0; x < VoxelData.ChunkWidth; x++) {
                 for (int z = 0; z < VoxelData.ChunkWidth; z++) {
-                    voxelMap[x, y, z] = worldGen.GenerateVoxel(new Vector3(x, y, z) + position);
+                    voxelMap[x, y, z] = worldGen.GenerateVoxel(new Vector3(x, y, z) + position).blockTypeIndex;
                 }
             }
         }
@@ -105,8 +105,8 @@ public class Chunk
     }
 
     void UpdateMeshData(Vector3 pos){
-        byte blockID = voxelMap[(int)pos.x, (int)pos.y, (int)pos.z];
-        bool isTransparent = world.blockTypes[blockID].isTransparent;
+        BlockType blockType = BlockTypes.ALL_BLOCKS[voxelMap[(int)pos.x, (int)pos.y, (int)pos.z]];
+        bool isTransparent = blockType.isTransparent;
         for (int p = 0; p < 6; p++) {
             if (CheckVoxel(pos + VoxelData.faceChecks[p])) {
                 vertices.Add(VoxelData.voxelVerts[VoxelData.voxelTris[p, 0]] + pos);
@@ -114,7 +114,7 @@ public class Chunk
                 vertices.Add(VoxelData.voxelVerts[VoxelData.voxelTris[p, 2]] + pos);
                 vertices.Add(VoxelData.voxelVerts[VoxelData.voxelTris[p, 3]] + pos);
 
-                AddTexture(world.blockTypes[blockID].GetTextureID(p));
+                AddTexture(blockType.GetTextureID(p));
 
                 if (!isTransparent){
                     triangles.Add(vertexIndex);
@@ -139,10 +139,10 @@ public class Chunk
     }
 
     //Use global coords
-    public byte GetBlockType(Vector3 globalPos) { 
+    public BlockType GetBlockType(Vector3 globalPos) { 
         if (IsVoxelInChunk(globalPos)) {
             int[] coordinates = GetVoxelLocalCoordsFromGlobalVector3(globalPos);
-            return voxelMap[coordinates[0], coordinates[1], coordinates[2]];
+            return BlockTypes.ALL_BLOCKS[voxelMap[coordinates[0], coordinates[1], coordinates[2]]];
         } else {
             return world.GetBlockType(globalPos);
         }
@@ -157,10 +157,9 @@ public class Chunk
             return 0;
     }
 
-    public void EditVoxel(Vector3 pos, byte newBlockID){
+    public void EditVoxel(Vector3 pos, BlockType newBlockType){
         int[] localCoords = GetVoxelLocalCoordsFromGlobalVector3(pos);
-        voxelMap[localCoords[0], localCoords[1], localCoords[2]] = newBlockID;
-
+        voxelMap[localCoords[0], localCoords[1], localCoords[2]] = newBlockType.blockTypeIndex;
         UpdateChunk();
         UpdateSurroundingVoxels(localCoords[0], localCoords[2]);
     }
@@ -173,10 +172,10 @@ public class Chunk
         UpdateSurroundingVoxels(x, z);
     }
 
-    public void EditVoxelWithoutMeshUpdate(int x, int y, int z, byte newBlockID)
+    public void EditVoxelWithoutMeshUpdate(int x, int y, int z, BlockType newBlockType)
     {
         if (IsVoxelInChunk(x,y,z))
-            voxelMap[x, y, z] = newBlockID;
+            voxelMap[x, y, z] = newBlockType.blockTypeIndex;
     }
 
     public void UpdateSurroundingVoxels(int x, int z) {
@@ -272,9 +271,9 @@ public class Chunk
                     coordinates[2] < 0 || coordinates[2] > VoxelData.ChunkWidth - 1);
     }
 
-    public byte GetVoxelFromGlobalVector3(Vector3 pos){
+    public BlockType GetVoxelFromGlobalVector3(Vector3 pos){
         int[] localCoords = GetVoxelLocalCoordsFromGlobalVector3(pos);
-        return voxelMap[localCoords[0], localCoords[1], localCoords[2]];
+        return BlockTypes.ALL_BLOCKS[voxelMap[localCoords[0], localCoords[1], localCoords[2]]];
     }
 
     public int[] GetVoxelLocalCoordsFromGlobalVector3(Vector3 pos)

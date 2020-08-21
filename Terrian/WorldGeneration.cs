@@ -28,39 +28,39 @@ public class WorldGeneration
         //AttemptToSpawnStructures();
     }
 
-    public byte GenerateVoxel(Vector3 pos)
+    public BlockType GenerateVoxel(Vector3 pos)
     {
         // ABSOLUTE PASS
         // If out of world, air
         if (!world.isVoxelInWorld(pos))
-            return 0;
+            return BlockTypes.AIR;
         // If bottom block, EOTW
         else if (pos.y == 0)
-            return 5;
+            return BlockTypes.EOTW;
 
-        byte voxelToReturn;
+        BlockType voxelToReturn;
         //Basic terrain sculpting
         int terrainHeight = Mathf.FloorToInt(world.biome.terrainHeight * Noise.Get2DPerlin(new Vector2(pos.x, pos.z),
             0, world.biome.terrainScale)) + world.biome.solidGroundHeight;
 
         if (pos.y == terrainHeight)
-            voxelToReturn = 1;
+            voxelToReturn = BlockTypes.GRASS;
         else if (pos.y < terrainHeight && pos.y > terrainHeight - 3)
-            voxelToReturn = 2;
+            voxelToReturn = BlockTypes.DIRT;
         else if (pos.y < terrainHeight)
-            voxelToReturn = 3;
+            voxelToReturn = BlockTypes.STONE;
         else
-            voxelToReturn = 0;
+            voxelToReturn = BlockTypes.AIR;
 
         //Ore pass
-        if (voxelToReturn == 3)
+        if (voxelToReturn == BlockTypes.STONE)
         {
             foreach (Lode lode in world.biome.lodes)
             {
                 if (pos.y > lode.minHeight && pos.y < lode.maxHeight)
                 {
                     if (Noise.Get3DPerlin(pos, lode.noiseOffset, lode.scale, lode.threshold))
-                        voxelToReturn = lode.blockID;
+                        voxelToReturn = lode.blockType;
                 }
             }
         }

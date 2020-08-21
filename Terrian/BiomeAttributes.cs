@@ -15,9 +15,8 @@ public class BiomeAttributes : ScriptableObject
 [System.Serializable]
 public class Lode { 
     public string nodeName;
-    public byte blockID;
+    public BlockType blockType;
     public int minHeight, maxHeight;
     public float scale, threshold, noiseOffset;
-
 
 }

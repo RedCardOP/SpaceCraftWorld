@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Player : MonoBehaviour
 {
@@ -8,6 +9,9 @@ public class Player : MonoBehaviour
     private World world;
     public Transform hightlightBlock, placeBlock;
     public MeshFilter placeBlockMesh;
+    
+    public Text debugOverlay;
+    public bool debugOverlayActive;
 
     public float walkSpeed = 3f;
     public float sprintSpeed = 6f;
@@ -25,16 +29,19 @@ public class Player : MonoBehaviour
     private bool jumpRequest;
 
     public byte selectedBlockIndex = 1;
+    public StorageInventory playerInventory;
 
     private void Start() {
         camera = GameObject.Find("Main Camera").transform;
         world = GameObject.Find("World").GetComponent<World>();
         Cursor.lockState = CursorLockMode.Locked;
+        playerInventory = new StorageInventory(100);
     }
 
     private void Update() {
         GetPlayerInputs();
         placeCursorBlocks();
+        UpdateDebugOverlay();
     }
 
     private void FixedUpdate() {
@@ -46,6 +53,19 @@ public class Player : MonoBehaviour
         camera.Rotate(Vector3.right * -mouseVertical * sensitivityMultiplier);
         transform.Translate(velocity, Space.World);
 
+    }
+
+    private void UpdateDebugOverlay() {
+        if(Input.GetButtonDown("Toggle Debug Overlay")) {
+            debugOverlayActive = !debugOverlayActive;
+            debugOverlay.gameObject.SetActive(debugOverlayActive);
+        }
+        if (debugOverlayActive) {
+            Vector3 pos = world.GetFlooredVector3(transform.position);
+            debugOverlay.text = "Block Position: X: " + (int)pos.x + " Y: " + (int)pos.y + " Z: " + (int)pos.z +
+                                "\nChunk X: " + world.playerLastChunkCoord.x + " Z: " + world.playerLastChunkCoord.z +
+                                "\nFPS: " + Mathf.FloorToInt(1f/Time.deltaTime);
+        }
     }
 
     private void CalculateVelocity() {
@@ -95,20 +115,25 @@ public class Player : MonoBehaviour
             else
                 selectedBlockIndex--;
             //Allows for scrolling back around to the beginning
-            if (selectedBlockIndex > (byte)(world.blockTypes.Length - 1))
+            if (selectedBlockIndex > (byte)(BlockTypes.ALL_BLOCKS.Length - 1))
                 selectedBlockIndex = 1;
             if (selectedBlockIndex < 1)
-                selectedBlockIndex = (byte)(world.blockTypes.Length - 1);
+                selectedBlockIndex = (byte)(BlockTypes.ALL_BLOCKS.Length - 1);
             updatePlaceBlockType();
         }
 
         if (hightlightBlock.gameObject.activeSelf) {
             //Destroy Block
-            if (Input.GetMouseButtonDown(0))
-                world.GetChunk(hightlightBlock.position).EditVoxel(hightlightBlock.position, 0);
+            if (Input.GetMouseButtonDown(0)) {
+                Chunk c = world.GetChunk(hightlightBlock.position);
+                Item blockItem = new Item(c.GetBlockType(hightlightBlock.position).GetItemType(), 1);
+                if(blockItem.GetItemType() != ItemTypes.NO_ITEM)
+                    playerInventory.AddItem(blockItem);
+                c.EditVoxel(hightlightBlock.position, BlockTypes.AIR);
+            }
             //Place Block
             else if (Input.GetMouseButtonDown(1))
-                world.GetChunk(placeBlock.position).EditVoxel(placeBlock.position, selectedBlockIndex);
+                world.GetChunk(placeBlock.position).EditVoxel(placeBlock.position, BlockTypes.ALL_BLOCKS[selectedBlockIndex]);
         }
     }
 
@@ -146,8 +171,8 @@ public class Player : MonoBehaviour
             vertices.Add(VoxelData.voxelVerts[VoxelData.voxelTris[p, 2]]);
             vertices.Add(VoxelData.voxelVerts[VoxelData.voxelTris[p, 3]]);
 
-            float y = world.blockTypes[selectedBlockIndex].GetTextureID(p) / VoxelData.TexturePackSizeInBlocks;
-            float x = world.blockTypes[selectedBlockIndex].GetTextureID(p) % VoxelData.TexturePackSizeInBlocks;
+            float y = BlockTypes.ALL_BLOCKS[selectedBlockIndex].GetTextureID(p) / VoxelData.TexturePackSizeInBlocks;
+            float x = BlockTypes.ALL_BLOCKS[selectedBlockIndex].GetTextureID(p) % VoxelData.TexturePackSizeInBlocks;
 
             x *= VoxelData.NormalizedBlockTextureSize;
             y *= VoxelData.NormalizedBlockTextureSize;
