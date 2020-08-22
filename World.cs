@@ -19,7 +19,7 @@ public class World : MonoBehaviour
     
     public bool deactivateOutOfViewingDistanceChunks = true;
     List<ChunkCoord> chunksToCreate = new List<ChunkCoord>();
-    private bool isCreatingChunks;
+    public Queue<ChunkCoord> chunksToDraw = new Queue<ChunkCoord>();
 
 
     void Start() {
@@ -39,13 +39,23 @@ public class World : MonoBehaviour
             worldGen.AttemptToSpawnStructures();
         }
 
-        if (chunksToCreate.Count > 0 && !isCreatingChunks)
-            StartCoroutine("CreateChunks");
-
+        if (chunksToCreate.Count > 0) {
+            ChunkCoord cc = chunksToCreate[0];
+            chunksToCreate.RemoveAt(0);
+            activeChunks.Add(cc);
+            chunks[cc.x, cc.z].Init();
+        }
+        if (chunksToDraw.Count > 0) {
+            lock (chunksToDraw) { 
+                if (GetChunk(chunksToDraw.Peek()).isEditable)
+                    GetChunk(chunksToDraw.Dequeue()).CreateMesh();
+            }
+        }
+           
     }
 
     //Function currently not in use
-    IEnumerator CreateChunks()
+    /*IEnumerator CreateChunks()
     {
         isCreatingChunks = true;
         while (chunksToCreate.Count > 0)
@@ -56,7 +66,7 @@ public class World : MonoBehaviour
         }
 
         isCreatingChunks = false;
-    }
+    }*/
 
     //Checks if a given block in global coords is solid
     public bool CheckForVoxel(Vector3 globalPos) {
@@ -179,3 +189,5 @@ public class World : MonoBehaviour
     }
 
 }
+
+

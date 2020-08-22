@@ -122,18 +122,21 @@ public class Player : MonoBehaviour
             updatePlaceBlockType();
         }
 
-        if (hightlightBlock.gameObject.activeSelf) {
+        if (hightlightBlock.gameObject.activeSelf){
             //Destroy Block
-            if (Input.GetMouseButtonDown(0)) {
+            if (Input.GetMouseButtonDown(0)){
                 Chunk c = world.GetChunk(hightlightBlock.position);
                 Item blockItem = new Item(c.GetBlockType(hightlightBlock.position).GetItemType(), 1);
-                if(blockItem.GetItemType() != ItemTypes.NO_ITEM)
+                if (blockItem.GetItemType() != ItemTypes.NO_ITEM)
                     playerInventory.AddItem(blockItem);
                 c.EditVoxel(hightlightBlock.position, BlockTypes.AIR);
+                c.UpdateChunk();
             }
             //Place Block
             else if (Input.GetMouseButtonDown(1))
+            {
                 world.GetChunk(placeBlock.position).EditVoxel(placeBlock.position, BlockTypes.ALL_BLOCKS[selectedBlockIndex]);
+            }
         }
     }
 

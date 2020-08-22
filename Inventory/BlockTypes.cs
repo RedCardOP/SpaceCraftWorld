@@ -19,6 +19,7 @@ public class BlockTypes {
     public static readonly BlockType[] ALL_BLOCKS = { AIR, GRASS, DIRT, STONE, WOOD, LEAVES, IRON_ORE, EOTW };
 }
 
+
 [System.Serializable]
 public class BlockType
 {
