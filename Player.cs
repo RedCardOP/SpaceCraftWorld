@@ -132,10 +132,13 @@ public class Player : MonoBehaviour
                 if(blockItem.GetItemType() != ItemTypes.NO_ITEM)
                     playerInventory.AddItem(blockItem);
                 c.EditVoxel(hightlightBlock.position, BlockTypes.AIR);
+                c.UpdateChunk();
             }
             //Place Block
-            else if (Input.GetMouseButtonDown(1))
+            else if (Input.GetMouseButtonDown(1)) {
                 world.GetChunk(placeBlock.position).EditVoxel(placeBlock.position, BlockTypes.ALL_BLOCKS[selectedBlockIndex]);
+                world.GetChunk(placeBlock.position).UpdateChunk();
+            }
         }
     }
 
