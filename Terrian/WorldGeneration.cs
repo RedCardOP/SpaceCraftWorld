@@ -111,7 +111,10 @@ public class WorldGeneration
             world.GetChunk(cc).PopulateSpawnableStructures();
         else
         {
-            chunksToSpawnStructures.Add(cc);
+            lock (chunksToSpawnStructures)
+            {
+                chunksToSpawnStructures.Add(cc);
+            }
         }
 
     }

@@ -65,6 +65,8 @@ public class Player : MonoBehaviour
             debugOverlay.text = "Block Position: X: " + (int)pos.x + " Y: " + (int)pos.y + " Z: " + (int)pos.z +
                                 "\nChunk X: " + world.playerLastChunkCoord.x + " Z: " + world.playerLastChunkCoord.z +
                                 "\nFPS: " + Mathf.FloorToInt(1f/Time.deltaTime);
+            if (Mathf.FloorToInt(1f / Time.deltaTime) < 15)
+                Debug.LogWarning("FPS Hit: " + Mathf.FloorToInt(1f / Time.deltaTime));
         }
     }
 

@@ -16,8 +16,9 @@ public abstract class SpawnableStructure
     public abstract float GetTargetStructuresPerPopulator();
 
     //Returns true if successfully populated
-    public abstract bool Populate(Vector3 pos);
-    public abstract bool Populate(ChunkCoord cc);
+    public abstract void Populate();
+    public abstract void PopulateTarget(ChunkCoord cc);
+    public abstract void PopulateTarget(Vector3 pos);
 }
 
 public enum PopulatorTier { CHUNK, BIOME}

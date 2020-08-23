@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
 public class World : MonoBehaviour
@@ -14,12 +15,12 @@ public class World : MonoBehaviour
     ChunkCoord _playerLastChunkCoord;
 
 
-    Chunk[,] chunks = new Chunk[VoxelData.WorldSizeInChunks, VoxelData.WorldSizeInChunks];
+    public Chunk[,] chunks = new Chunk[VoxelData.WorldSizeInChunks, VoxelData.WorldSizeInChunks];
     public List<ChunkCoord> activeChunks = new List<ChunkCoord>();
     
     public bool deactivateOutOfViewingDistanceChunks = true;
     List<ChunkCoord> chunksToCreate = new List<ChunkCoord>();
-    private bool isCreatingChunks;
+    public Queue<ChunkCoord> chunksToDraw = new Queue<ChunkCoord>();
 
 
     void Start() {
@@ -32,30 +33,26 @@ public class World : MonoBehaviour
     }
 
     void Update() {
-        if (!playerLastChunkCoord.Equals(GetChunkCoord(player.position)))
-        {
+        if (!playerLastChunkCoord.Equals(GetChunkCoord(player.position))){
             CheckViewDistance();
             playerLastChunkCoord = GetChunkCoord(player.position);
             worldGen.AttemptToSpawnStructures();
         }
 
-        if (chunksToCreate.Count > 0 && !isCreatingChunks)
-            StartCoroutine("CreateChunks");
-
-    }
-
-    //Function currently not in use
-    IEnumerator CreateChunks()
-    {
-        isCreatingChunks = true;
-        while (chunksToCreate.Count > 0)
-        {
-            chunks[chunksToCreate[0].x, chunksToCreate[0].z].Init();
+        if (chunksToCreate.Count > 0){
+            ChunkCoord cc = chunksToCreate[0];
             chunksToCreate.RemoveAt(0);
-            yield return null;
+            activeChunks.Add(cc);
+            chunks[cc.x, cc.z].Init();
+        }
+        if (chunksToDraw.Count > 0){
+            lock (chunksToDraw) {
+                if (GetChunk(chunksToDraw.Peek()).isEditable) {
+                    GetChunk(chunksToDraw.Dequeue()).CreateMesh();
+                }
+            }
         }
 
-        isCreatingChunks = false;
     }
 
     //Checks if a given block in global coords is solid

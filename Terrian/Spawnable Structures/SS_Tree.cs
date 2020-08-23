@@ -5,6 +5,10 @@ using UnityEngine;
 public class SS_Tree : SpawnableStructure
 {
     World world;
+    Dictionary<ChunkCoord, Queue<VoxelModification>> populationModifications = new Dictionary<ChunkCoord, Queue<VoxelModification>>();
+    Queue<VoxelModification> primaryChunkModifications = new Queue<VoxelModification>();
+    ChunkCoord ccTarget;
+
     public SS_Tree(World world) : base(PopulatorTier.CHUNK) {
         this.world = world;
     }
@@ -18,58 +22,72 @@ public class SS_Tree : SpawnableStructure
         throw new System.NotImplementedException();
     }
 
-    public override bool Populate(Vector3 pos)
+    public override void PopulateTarget(Vector3 globalPos)
     {
-        throw new System.NotImplementedException();
+        ccTarget = world.GetChunkCoord(globalPos);
     }
 
-    public override bool Populate(ChunkCoord cc)
+    public override void PopulateTarget(ChunkCoord cc)
     {
-        int seed = world.seed ^ cc.x ^ cc.z * 1000;
-        Random.InitState(seed);
-        int x = Random.Range(0, VoxelData.ChunkWidth);
-        int z = Random.Range(0, VoxelData.ChunkWidth);
-        Chunk chunk = world.GetChunk(cc);
-        List<ChunkCoord> neighboursToUpdate = new List<ChunkCoord>();
+        ccTarget = cc;
+    }
+
+    public override void Populate()
+    {
+        int seed = world.seed ^ ccTarget.x ^ ccTarget.z * 1000;
+        System.Random rand = new System.Random(seed);
+        int x = rand.Next(0, VoxelData.ChunkWidth);
+        int z = rand.Next(0, VoxelData.ChunkWidth);
+        //This is just temporary to decrease the load of trees spawned
+        //int toSpawn = rand.Next(0, 10);
+        //if (toSpawn != 0)
+        //    return false;
+        Chunk chunk = world.GetChunk(ccTarget);
         int y = chunk.heightMap[x, z] + 1;
         if (!world.blockTypes[chunk.GetBlockType(x, y - 1, z)].blockName.Equals("Grass") &&
             !world.blockTypes[chunk.GetBlockType(x, y - 1, z)].blockName.Equals("Dirt"))
-            return false;
-        for (int i = 0; i < 10; i++)
-        {
-            chunk.EditVoxelWithoutMeshUpdate(x, y + i, z, BlockTypes.WOOD);
+            return;
+        //Creates the wood part of tree
+        for (int i = 0; i < 5; i++) {
+            primaryChunkModifications.Enqueue(new VoxelModification(x, y + i, z, BlockTypes.WOOD));
         }
-        for (int yLeaves = y + 8; yLeaves < y + 11; yLeaves++)
+        //Leaves part of tree
+        for (int yLeaves = y + 3; yLeaves < y + 5; yLeaves++)
         {
-            for (int i = -4; i < 5; i++)
+            for (int i = -3; i < 4; i++)
             {
-                for (int j = -4; j < 5; j++)
+                for (int j = -3; j < 4; j++)
                 {
                     if (i != 0 || j != 0) {
                         if (chunk.IsVoxelInChunk(x + i, yLeaves, z + j))
-                            chunk.EditVoxelWithoutMeshUpdate(x + i, yLeaves, z + j, BlockTypes.LEAVES);
+                            primaryChunkModifications.Enqueue(new VoxelModification(x + i, yLeaves, z + j, BlockTypes.LEAVES));
                         else {
                             Vector3 globalPosition = chunk.position + new Vector3(x + i, yLeaves, z + j);
                             Chunk neighbourToEdit = world.GetChunk(globalPosition);
+                            if (!populationModifications.ContainsKey(neighbourToEdit.coord))
+                                populationModifications.Add(neighbourToEdit.coord, new Queue<VoxelModification>());
                             int[] localCoords = neighbourToEdit.GetVoxelLocalCoordsFromGlobalVector3(globalPosition);
-                            neighbourToEdit.EditVoxelWithoutMeshUpdate(localCoords[0], localCoords[1], localCoords[2], BlockTypes.LEAVES);
-                            if (!neighboursToUpdate.Contains(neighbourToEdit.coord))
-                                neighboursToUpdate.Add(neighbourToEdit.coord);
+                            Queue<VoxelModification> neighbourVoxModQueue;
+                            populationModifications.TryGetValue(neighbourToEdit.coord, out neighbourVoxModQueue);
+                            neighbourVoxModQueue.Enqueue(new VoxelModification(localCoords[0], localCoords[1], localCoords[2], BlockTypes.LEAVES));
                         }
                     }
                 }
             }
         }
-        chunk.UpdateChunk();
-        chunk.UpdateSurroundingVoxels(x, z);
-        chunk.UpdateHeightMap();
-        foreach(ChunkCoord chunkToUpate in neighboursToUpdate) {
+        chunk.EditMultipleBlocks(primaryChunkModifications);
+
+        foreach (ChunkCoord chunkToUpate in populationModifications.Keys)
+        {
             Chunk neighbour = world.GetChunk(chunkToUpate);
+            Queue<VoxelModification> neighbourVoxModQueue = new Queue<VoxelModification>();
+            populationModifications.TryGetValue(neighbour.coord, out neighbourVoxModQueue);
+            neighbour.EditMultipleBlocks(neighbourVoxModQueue);
             neighbour.UpdateChunk();
             neighbour.UpdateHeightMap();
         }
-          
-        return true;
-
+        chunk.UpdateChunk();
+        chunk.UpdateSurroundingVoxels(x, z);
+        chunk.UpdateHeightMap();
     }
 }
