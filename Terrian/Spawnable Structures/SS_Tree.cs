@@ -38,11 +38,8 @@ public class SS_Tree : SpawnableStructure
         System.Random rand = new System.Random(seed);
         int x = rand.Next(0, VoxelData.ChunkWidth);
         int z = rand.Next(0, VoxelData.ChunkWidth);
-        //This is just temporary to decrease the load of trees spawned
-        //int toSpawn = rand.Next(0, 10);
-        //if (toSpawn != 0)
-        //    return false;
         Chunk chunk = world.GetChunk(ccTarget);
+        Debug.Log("Populating tree on chunk " + chunk);
         int y = chunk.heightMap[x, z] + 1;
         if (!world.blockTypes[chunk.GetBlockType(x, y - 1, z)].blockName.Equals("Grass") &&
             !world.blockTypes[chunk.GetBlockType(x, y - 1, z)].blockName.Equals("Dirt"))

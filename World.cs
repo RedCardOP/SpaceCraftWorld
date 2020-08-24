@@ -20,7 +20,7 @@ public class World : MonoBehaviour
     
     public bool deactivateOutOfViewingDistanceChunks = true;
     List<ChunkCoord> chunksToCreate = new List<ChunkCoord>();
-    public Queue<ChunkCoord> chunksToDraw = new Queue<ChunkCoord>();
+    public Queue<SubchunkCoord> subchunksToDraw = new Queue<SubchunkCoord>();
 
 
     void Start() {
@@ -45,14 +45,16 @@ public class World : MonoBehaviour
             activeChunks.Add(cc);
             chunks[cc.x, cc.z].Init();
         }
-        if (chunksToDraw.Count > 0){
-            lock (chunksToDraw) {
-                if (GetChunk(chunksToDraw.Peek()).isEditable) {
-                    GetChunk(chunksToDraw.Dequeue()).CreateMesh();
+        if (subchunksToDraw.Count > 0){
+            lock (subchunksToDraw) {
+                for (int i = 0; i < PerformanceSettings.subchunksToDrawPerFrame; i++){
+                    if (subchunksToDraw.Count == 0) break;
+                    if (GetSubchunk(subchunksToDraw.Peek()).isEditable){
+                        GetSubchunk(subchunksToDraw.Dequeue()).CreateMesh();
+                    }
                 }
             }
         }
-
     }
 
     //Checks if a given block in global coords is solid
@@ -148,6 +150,14 @@ public class World : MonoBehaviour
         ChunkCoord cc = GetChunkCoord(globalPos);
         if (isChunkInWorld(cc))
             return chunks[cc.x, cc.z];
+        else
+            return null;
+    }
+
+    public Subchunk GetSubchunk(SubchunkCoord sc) {
+        Chunk superChunk = GetChunk(sc.superChunkCoord);
+        if (superChunk != null)
+            return superChunk.GetSubchunk(sc.subchunkIndex);
         else
             return null;
     }
