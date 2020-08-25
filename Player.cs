@@ -63,7 +63,7 @@ public class Player : MonoBehaviour
         if (debugOverlayActive) {
             Vector3 pos = world.GetFlooredVector3(transform.position);
             debugOverlay.text = "Block Position: X: " + (int)pos.x + " Y: " + (int)pos.y + " Z: " + (int)pos.z +
-                                "\nChunk X: " + world.playerLastChunkCoord.x + " Z: " + world.playerLastChunkCoord.z +
+                                "\nChunk X: " + world.playerLastChunkCoord.x + " Y: " + Subchunk.GetSubchunkIndex((int)pos.y) + " Z: " + world.playerLastChunkCoord.z +
                                 "\nFPS: " + Mathf.FloorToInt(1f/Time.deltaTime);
             if (Mathf.FloorToInt(1f / Time.deltaTime) < 15)
                 Debug.LogWarning("FPS Hit: " + Mathf.FloorToInt(1f / Time.deltaTime));
@@ -132,12 +132,10 @@ public class Player : MonoBehaviour
                 if(blockItem.GetItemType() != ItemTypes.NO_ITEM)
                     playerInventory.AddItem(blockItem);
                 c.EditVoxel(hightlightBlock.position, BlockTypes.AIR);
-                c.UpdateChunk();
             }
             //Place Block
             else if (Input.GetMouseButtonDown(1)) {
                 world.GetChunk(placeBlock.position).EditVoxel(placeBlock.position, BlockTypes.ALL_BLOCKS[selectedBlockIndex]);
-                world.GetChunk(placeBlock.position).UpdateChunk();
             }
         }
     }

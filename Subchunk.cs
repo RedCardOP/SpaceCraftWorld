@@ -6,6 +6,7 @@ using UnityEngine;
 public class Subchunk {
     
     Chunk superChunk;
+    World world;
     public SubchunkCoord coord;
     GameObject subchunkObject;
     MeshRenderer meshRenderer;
@@ -23,9 +24,10 @@ public class Subchunk {
     public Vector3 position;
     byte subchunkIndex;
 
-    public Subchunk(Chunk superChunk, byte subchunkIndex, Material[] materials) {
+    public Subchunk(Chunk superChunk, World world, byte subchunkIndex, Material[] materials) {
         subchunkObject = new GameObject();
         this.superChunk = superChunk;
+        this.world = world;
         meshFilter = subchunkObject.AddComponent<MeshFilter>();
         meshRenderer = subchunkObject.AddComponent<MeshRenderer>();
 
@@ -51,6 +53,9 @@ public class Subchunk {
                     }
                 }
             }
+        }
+        lock (world.subchunksToDraw){
+            world.subchunksToDraw.Enqueue(coord);
         }
     }
 
@@ -140,6 +145,10 @@ public class Subchunk {
 
     public bool isEditable {
         get { return (!isSubchunkLocked); }
+    }
+
+    public override string ToString(){
+        return "Subchunk " + coord.superChunkCoord.x + " " + coord.subchunkIndex + " " + coord.superChunkCoord.z;
     }
 
 }

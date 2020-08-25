@@ -54,7 +54,7 @@ public class Chunk
         position = chunkObject.transform.position;
 
         for(byte subChunkIndex = 0; subChunkIndex < VoxelData.ChunkSubdivisions; subChunkIndex++) {
-            subchunks[subChunkIndex] = new Subchunk(this, subChunkIndex, materials);
+            subchunks[subChunkIndex] = new Subchunk(this, world, subChunkIndex, materials);
         }
 
         isChunkLocked = true;
@@ -137,6 +137,7 @@ public class Chunk
             return 0;
     }
 
+    //Updates the voxel and subchunk on same thread.
     public void EditVoxel(Vector3 pos, BlockType newBlockType){
         int[] localCoords = GetVoxelLocalCoordsFromGlobalVector3(pos);
         VoxelModification voxMod = new VoxelModification(localCoords[0], localCoords[1], localCoords[2], newBlockType);
@@ -145,7 +146,7 @@ public class Chunk
         lock (voxelModifications){
             voxelModifications.Enqueue(wrappedVoxMod);
         }
-        UpdateSurroundingVoxels(localCoords[0], localCoords[2]);
+        _updateChunk();
     }
 
     public void EditVoxel(int x, int y, int z, BlockType newBlockType)
@@ -165,28 +166,49 @@ public class Chunk
         }
     }
 
-    public void UpdateSurroundingVoxels(int x, int z) {
-        ChunkCoord adjacentChunk = new ChunkCoord(coord);
+    public void UpdateSurroundingSubchunks(int x, int y, int z) {
+        foreach (SubchunkCoord sc in GetAdjacentSubchunks(x, y, z))
+            world.GetSubchunk(sc).UpdateSubChunk();
+    }
+
+    public List<SubchunkCoord> GetAdjacentSubchunks(int x, int y, int z) {
+        List<SubchunkCoord> adjacentSubchunks = new List<SubchunkCoord>();
+        byte subchunkIndex = Subchunk.GetSubchunkIndex(y);
         if (x == 0) {
-            adjacentChunk.x--;
+            ChunkCoord adjacentChunk = new ChunkCoord(coord);
+            adjacentChunk.x -= 1;
             if (world.isChunkInWorld(adjacentChunk) && world.GetChunk(adjacentChunk) != null)
-                world.GetChunk(adjacentChunk).UpdateChunk();
+                adjacentSubchunks.Add(world.GetChunk(adjacentChunk).GetSubchunk(subchunkIndex).coord);
         }
         else if(x == VoxelData.ChunkWidth - 1){
-            adjacentChunk.x++;
+            ChunkCoord adjacentChunk = new ChunkCoord(coord);
+            adjacentChunk.x += 1;
             if (world.isChunkInWorld(adjacentChunk) && world.GetChunk(adjacentChunk) != null)
-                world.GetChunk(adjacentChunk).UpdateChunk();
+                adjacentSubchunks.Add(world.GetChunk(adjacentChunk).GetSubchunk(subchunkIndex).coord);
         }
-        if(z == 0){
-            adjacentChunk.z--;
+        if (y % VoxelData.ChunkSubdivisionHeight == 0 && y != 0) {
+            adjacentSubchunks.Add(new SubchunkCoord(coord, (byte)(subchunkIndex - 1)));
+        }
+        else if (y % VoxelData.ChunkSubdivisionHeight == (VoxelData.ChunkSubdivisionHeight - 1) && y < VoxelData.ChunkHeight) {
+            adjacentSubchunks.Add(new SubchunkCoord(coord, (byte)(subchunkIndex + 1)));
+        }
+        if (z == 0){
+            ChunkCoord adjacentChunk = new ChunkCoord(coord);
+            adjacentChunk.z -= 1;
             if (world.isChunkInWorld(adjacentChunk) && world.GetChunk(adjacentChunk) != null)
-                world.GetChunk(adjacentChunk).UpdateChunk();
+                adjacentSubchunks.Add(world.GetChunk(adjacentChunk).GetSubchunk(subchunkIndex).coord);
         }
         else if(z == VoxelData.ChunkWidth - 1){
-            adjacentChunk.z++;
+            ChunkCoord adjacentChunk = new ChunkCoord(coord);
+            adjacentChunk.z += 1;
             if (world.isChunkInWorld(adjacentChunk) && world.GetChunk(adjacentChunk) != null)
-                world.GetChunk(adjacentChunk).UpdateChunk();
+            {
+                if (world.GetChunk(adjacentChunk).GetSubchunk(subchunkIndex) == null)
+                    Debug.Log(world.GetChunk(adjacentChunk).GetSubchunk(subchunkIndex));
+                adjacentSubchunks.Add(world.GetChunk(adjacentChunk).GetSubchunk(subchunkIndex).coord);
+            }
         }
+        return adjacentSubchunks;
     }
 
     public bool CheckVoxel(Vector3 pos) {
@@ -206,6 +228,7 @@ public class Chunk
     public void _updateChunk(){
         isChunkLocked = true;
         bool[] subchunksToUpdate = new bool[VoxelData.ChunkSubdivisions];
+        List<SubchunkCoord> adjacentSubchunksToUpdate = new List<SubchunkCoord>();
         lock (voxelModifications) {
             while (voxelModifications.Count > 0) {
                 Queue<VoxelModification> voxModElement = voxelModifications.Dequeue();
@@ -213,16 +236,26 @@ public class Chunk
                     VoxelModification voxMod = voxModElement.Dequeue();
                     voxelMap[voxMod.x, voxMod.y, voxMod.z] = voxMod.newBlockType.blockTypeIndex;
                     subchunksToUpdate[Subchunk.GetSubchunkIndex(voxMod.y)] = true;
+                    List <SubchunkCoord> adjacentSubchunks = GetAdjacentSubchunks(voxMod.x, voxMod.y, voxMod.z); 
+                    foreach (SubchunkCoord adjacentSubchunk in adjacentSubchunks) {
+                        if (adjacentSubchunk.superChunkCoord.Equals(coord))
+                            subchunksToUpdate[adjacentSubchunk.subchunkIndex] = true;
+                        else
+                            adjacentSubchunksToUpdate.Add(adjacentSubchunk);
+                    }
                 }
             }
         }
-        
-        lock (world.subchunksToDraw) {
-            for (byte i = 0; i < subchunksToUpdate.Length; i++) {
-                if (subchunksToUpdate[i]) {
-                    subchunks[i].UpdateSubChunk();
-                    world.subchunksToDraw.Enqueue(subchunks[i].coord);
-                }
+        List<SubchunkCoord> updatedAdjacentSubchunks = new List<SubchunkCoord>();
+        for (int i = 0; i < subchunksToUpdate.Length; i++) {
+            if (subchunksToUpdate[i]) {
+                subchunks[i].UpdateSubChunk();
+            }
+        }
+        for (int i = 0; i < adjacentSubchunksToUpdate.Count; i++) {
+            if (!updatedAdjacentSubchunks.Contains(adjacentSubchunksToUpdate[i])) {
+                world.GetSubchunk(adjacentSubchunksToUpdate[i]).UpdateSubChunk();
+                updatedAdjacentSubchunks.Add(adjacentSubchunksToUpdate[i]);
             }
         }
         isChunkLocked = false;
@@ -319,5 +352,9 @@ public class VoxelModification {
         this.y = y;
         this.z = z;
         this.newBlockType = newBlockType;
+    }
+
+    public override string ToString() {
+        return "VoxMod " + x + " " + y + " " + z + " newBlock: " + newBlockType.blockName;
     }
 }

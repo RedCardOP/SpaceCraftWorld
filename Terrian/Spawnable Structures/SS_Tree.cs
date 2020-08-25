@@ -39,27 +39,26 @@ public class SS_Tree : SpawnableStructure
         int x = rand.Next(0, VoxelData.ChunkWidth);
         int z = rand.Next(0, VoxelData.ChunkWidth);
         Chunk chunk = world.GetChunk(ccTarget);
-        Debug.Log("Populating tree on chunk " + chunk);
         int y = chunk.heightMap[x, z] + 1;
         if (!world.blockTypes[chunk.GetBlockType(x, y - 1, z)].blockName.Equals("Grass") &&
             !world.blockTypes[chunk.GetBlockType(x, y - 1, z)].blockName.Equals("Dirt"))
             return;
         //Creates the wood part of tree
-        for (int i = 0; i < 5; i++) {
-            primaryChunkModifications.Enqueue(new VoxelModification(x, y + i, z, BlockTypes.WOOD));
+        for (int yStart = y; y < yStart + 5; y++) {
+            primaryChunkModifications.Enqueue(new VoxelModification(x, y, z, BlockTypes.WOOD));
         }
         //Leaves part of tree
-        for (int yLeaves = y + 3; yLeaves < y + 5; yLeaves++)
+        for (int yLeavesStart = y; y < yLeavesStart + 5; y++)
         {
             for (int i = -3; i < 4; i++)
             {
                 for (int j = -3; j < 4; j++)
                 {
-                    if (i != 0 || j != 0) {
-                        if (chunk.IsVoxelInChunk(x + i, yLeaves, z + j))
-                            primaryChunkModifications.Enqueue(new VoxelModification(x + i, yLeaves, z + j, BlockTypes.LEAVES));
+                    //if (i != 0 || j != 0) {
+                        if (chunk.IsVoxelInChunk(x + i, y, z + j))
+                            primaryChunkModifications.Enqueue(new VoxelModification(x + i, y, z + j, BlockTypes.LEAVES));
                         else {
-                            Vector3 globalPosition = chunk.position + new Vector3(x + i, yLeaves, z + j);
+                            Vector3 globalPosition = chunk.position + new Vector3(x + i, y, z + j);
                             Chunk neighbourToEdit = world.GetChunk(globalPosition);
                             if (!populationModifications.ContainsKey(neighbourToEdit.coord))
                                 populationModifications.Add(neighbourToEdit.coord, new Queue<VoxelModification>());
@@ -68,7 +67,7 @@ public class SS_Tree : SpawnableStructure
                             populationModifications.TryGetValue(neighbourToEdit.coord, out neighbourVoxModQueue);
                             neighbourVoxModQueue.Enqueue(new VoxelModification(localCoords[0], localCoords[1], localCoords[2], BlockTypes.LEAVES));
                         }
-                    }
+                    //}
                 }
             }
         }
@@ -84,7 +83,7 @@ public class SS_Tree : SpawnableStructure
             neighbour.UpdateHeightMap();
         }
         chunk.UpdateChunk();
-        chunk.UpdateSurroundingVoxels(x, z);
+        //chunk.UpdateSurroundingVoxels(x, z);
         chunk.UpdateHeightMap();
     }
 }

@@ -12,7 +12,7 @@ public class BlockTypes {
     public static readonly BlockType DIRT = new BlockType("Dirt", true, false, 1, 2, 1, 1, 1, 1, 1, 1);        //Index 2
     public static readonly BlockType STONE = new BlockType("Stone", true, false, 3, 3, 2, 2, 2, 2, 2, 2);      //Index 3
     public static readonly BlockType WOOD = new BlockType("Wood", true, false, 4, 4, 3, 3, 5, 5, 3, 3);        //Index 4
-    public static readonly BlockType LEAVES = new BlockType("Leaves", false, true, 0, 5, 4, 4, 4, 4, 4, 4);    //Index 5
+    public static readonly BlockType LEAVES = new BlockType("Leaves", true, true, 0, 5, 4, 4, 4, 4, 4, 4);    //Index 5
     public static readonly BlockType IRON_ORE = new BlockType("Iron Ore", true, false, 5, 6, 8, 8, 8, 8, 8, 8);//Index 6
     public static readonly BlockType EOTW = new BlockType("EOTW", true, false, 0, 7, 15, 15, 15, 15, 15, 15);  //Index 7
     
