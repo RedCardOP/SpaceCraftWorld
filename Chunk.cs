@@ -121,7 +121,7 @@ public class Chunk
     //Use global coords
     public BlockType GetBlockType(Vector3 globalPos) { 
         if (IsVoxelInChunk(globalPos)) {
-            int[] coordinates = GetVoxelLocalCoordsFromGlobalVector3(globalPos);
+            int[] coordinates = GetVoxelLocalCoords(globalPos);
             return BlockTypes.ALL_BLOCKS[voxelMap[coordinates[0], coordinates[1], coordinates[2]]];
         } else {
             return world.GetBlockType(globalPos);
@@ -139,7 +139,7 @@ public class Chunk
 
     //Updates the voxel and subchunk on same thread.
     public void EditVoxel(Vector3 pos, BlockType newBlockType){
-        int[] localCoords = GetVoxelLocalCoordsFromGlobalVector3(pos);
+        int[] localCoords = GetVoxelLocalCoords(pos);
         VoxelModification voxMod = new VoxelModification(localCoords[0], localCoords[1], localCoords[2], newBlockType);
         Queue<VoxelModification> wrappedVoxMod = new Queue<VoxelModification>();
         wrappedVoxMod.Enqueue(voxMod);
@@ -266,23 +266,26 @@ public class Chunk
     }
 
     public bool IsVoxelInChunk(Vector3 globalPos){
-        int[] coordinates = GetVoxelLocalCoordsFromGlobalVector3(globalPos);
+        int[] coordinates = GetVoxelLocalCoords(globalPos);
         return !(coordinates[0] < 0 || coordinates[0] > VoxelData.ChunkWidth - 1 ||
                     coordinates[1] < 0 || coordinates[1] > VoxelData.ChunkHeight - 1 ||
                     coordinates[2] < 0 || coordinates[2] > VoxelData.ChunkWidth - 1);
     }
 
-    public BlockType GetVoxelFromGlobalVector3(Vector3 pos){
-        int[] localCoords = GetVoxelLocalCoordsFromGlobalVector3(pos);
+    public BlockType GetBlock(Vector3 pos){
+        int[] localCoords = GetVoxelLocalCoords(pos);
         return BlockTypes.ALL_BLOCKS[voxelMap[localCoords[0], localCoords[1], localCoords[2]]];
     }
 
-    public BlockType GetVoxelFromLocalCoords(int x, int y, int z) {
+    public BlockType GetBlock(int x, int y, int z) {
         return BlockTypes.ALL_BLOCKS[voxelMap[x, y, z]];
     }
 
-    public int[] GetVoxelLocalCoordsFromGlobalVector3(Vector3 pos)
-    {
+    public Vector3 GetVoxelGlobalCoords(int x, int y, int z) {
+        return new Vector3(x + position.x, y, z + position.z);
+    }
+
+    public int[] GetVoxelLocalCoords(Vector3 pos){
         int xCheck = Mathf.FloorToInt(pos.x);
         int yCheck = Mathf.FloorToInt(pos.y);
         int zCheck = Mathf.FloorToInt(pos.z);
@@ -291,8 +294,28 @@ public class Chunk
         return new int[] { xCheck, yCheck, zCheck};
     }
 
+    //Returns null if Block doesn't have a bounding box
+    public BoundingBox GetBlockBoundingBox(Vector3 globalPos) {
+        BoundingBox bb = new BoundingBox(globalPos, 1, 1, 1);
+        bb.offsetCenter();
+//        Debug.Log(globalPos + " " + GetBlock(globalPos).blockName + " " + GetBlock(globalPos).isSolid);
+        if (GetBlock(globalPos).isSolid)
+            return bb;
+        return BoundingBox.AIR_BB;
+    }
+
     public Subchunk GetSubchunk(int index) {
         return subchunks[index];
+    }
+
+    //NOT COMPLETE YET
+    public SubchunkCoord[] GetBoundingBoxOccupiedSubchunks(BoundingBox bb) {
+        List<SubchunkCoord> subchunks = new List<SubchunkCoord>();
+        Vector3 center = bb.center;
+        BoundingBoxOffsets bbo = bb.GetBoundingBoxOffsets(center);
+        subchunks.Add(world.GetSubchunkCoord(center));
+
+        return subchunks.ToArray();
     }
 
     public bool isActive {

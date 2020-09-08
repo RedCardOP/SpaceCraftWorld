@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class World : MonoBehaviour
 {
@@ -14,6 +15,13 @@ public class World : MonoBehaviour
     public WorldGeneration worldGen;
     ChunkCoord _playerLastChunkCoord;
 
+    //Objects needed to passed to player
+    public Transform hightlightBlock, placeBlock;
+    public MeshFilter placeBlockMesh;
+    public Text debugOverlay;
+    public bool dropItem = true;
+
+    public float gravity = -5f;
 
     public Chunk[,] chunks = new Chunk[VoxelData.WorldSizeInChunks, VoxelData.WorldSizeInChunks];
     public List<ChunkCoord> activeChunks = new List<ChunkCoord>();
@@ -24,10 +32,13 @@ public class World : MonoBehaviour
 
 
     void Start() {
+        gameObject.AddComponent<EntityManager>();
         Random.InitState(seed);
         spawnPosition = new Vector3(VoxelData.WorldSizeInVoxels / 2f, VoxelData.ChunkHeight - 150f, VoxelData.WorldSizeInVoxels / 2f);
         worldGen = new WorldGeneration(this);
         worldGen.GenerateWorld();
+        Player player = new Player(this, hightlightBlock, placeBlock, placeBlockMesh, debugOverlay);
+        player.Start();
         player.position = spawnPosition;
         playerLastChunkCoord = GetChunkCoord(player.position);
     }
@@ -63,7 +74,7 @@ public class World : MonoBehaviour
         if (!isVoxelInWorld(globalPos))
             return false;
         if (chunks[currentChunk.x, currentChunk.z] != null && chunks[currentChunk.x, currentChunk.z].isVoxelMapPopulated)
-            return chunks[currentChunk.x, currentChunk.z].GetVoxelFromGlobalVector3(globalPos).isSolid;
+            return chunks[currentChunk.x, currentChunk.z].GetBlock(globalPos).isSolid;
         return GetBlockType(globalPos).isSolid;
 
     }
@@ -76,7 +87,7 @@ public class World : MonoBehaviour
             return false;
         if (chunks[currentChunk.x, currentChunk.z] != null && chunks[currentChunk.x, currentChunk.z].isVoxelMapPopulated)
         {
-            return chunks[currentChunk.x, currentChunk.z].GetVoxelFromGlobalVector3(globalPos).isTransparent;
+            return chunks[currentChunk.x, currentChunk.z].GetBlock(globalPos).isTransparent;
         }
         return worldGen.GenerateVoxel(globalPos).isTransparent;
     }
@@ -153,6 +164,12 @@ public class World : MonoBehaviour
         else
             return null;
     }
+    public Chunk GetChunk(ChunkCoord cc) {
+        if (isChunkInWorld(cc))
+            return chunks[cc.x, cc.z];
+        else
+            return null;
+    }
 
     public Subchunk GetSubchunk(SubchunkCoord sc) {
         Chunk superChunk = GetChunk(sc.superChunkCoord);
@@ -162,12 +179,10 @@ public class World : MonoBehaviour
             return null;
     }
 
-    public Chunk GetChunk(ChunkCoord cc)
-    {
-        if (isChunkInWorld(cc))
-            return chunks[cc.x, cc.z];
-        else
-            return null;
+    public SubchunkCoord GetSubchunkCoord(Vector3 globalPos) {
+        ChunkCoord superChunk = GetChunkCoord(globalPos);
+        byte subchunkIndex = Subchunk.GetSubchunkIndex(Mathf.FloorToInt(globalPos.y));
+        return new SubchunkCoord(superChunk, subchunkIndex);
     }
 
     public void SetChunk(Chunk chunk, ChunkCoord cc) {
@@ -175,7 +190,7 @@ public class World : MonoBehaviour
             chunks[cc.x, cc.z] = chunk;
     }
 
-    public Vector3 GetFlooredVector3(Vector3 pos){
+    public static Vector3 GetFlooredVector3(Vector3 pos){
         return new Vector3(Mathf.FloorToInt(pos.x), Mathf.FloorToInt(pos.y), Mathf.FloorToInt(pos.z));
     }
 

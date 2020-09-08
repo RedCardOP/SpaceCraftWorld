@@ -62,7 +62,7 @@ public class SS_Tree : SpawnableStructure
                             Chunk neighbourToEdit = world.GetChunk(globalPosition);
                             if (!populationModifications.ContainsKey(neighbourToEdit.coord))
                                 populationModifications.Add(neighbourToEdit.coord, new Queue<VoxelModification>());
-                            int[] localCoords = neighbourToEdit.GetVoxelLocalCoordsFromGlobalVector3(globalPosition);
+                            int[] localCoords = neighbourToEdit.GetVoxelLocalCoords(globalPosition);
                             Queue<VoxelModification> neighbourVoxModQueue;
                             populationModifications.TryGetValue(neighbourToEdit.coord, out neighbourVoxModQueue);
                             neighbourVoxModQueue.Enqueue(new VoxelModification(localCoords[0], localCoords[1], localCoords[2], BlockTypes.LEAVES));

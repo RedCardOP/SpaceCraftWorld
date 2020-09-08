@@ -1,22 +1,24 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Xml.Schema;
+using UnityEditor.Build.Reporting;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class Player : MonoBehaviour
+public class Player : Entity
 {
+    private GameObject playerGameObject;
     private Transform camera;
     private World world;
     public Transform hightlightBlock, placeBlock;
     public MeshFilter placeBlockMesh;
     
     public Text debugOverlay;
-    public bool debugOverlayActive;
+    public bool debugOverlayActive = true;
 
     public float walkSpeed = 3f;
     public float sprintSpeed = 6f;
-    public float gravity = -9.8f;
-    public float jumpForce = 5f;
+    public float jumpForce = 6f;
     public float playerWidth = 0.15f;
     public bool isGrounded, isSprinting;
     public float sensitivityMultiplier = 1f;
@@ -25,71 +27,83 @@ public class Player : MonoBehaviour
     public float reach = 8f;
 
     private float horizontal, vertical, mouseHorizontal, mouseVertical, verticalMomentum;
-    private Vector3 velocity;
-    private bool jumpRequest;
+    public Vector3 velocity;
+    public bool jumpRequest;
 
     public byte selectedBlockIndex = 1;
     public StorageInventory playerInventory;
+    public Entity highlightedEntity;
 
-    private void Start() {
+    public Player(World world, Transform hightlightBlock, Transform placeBlock, MeshFilter placeBlockMesh, Text debugOverlay) {
+        EntityManager.entities.Add(this);
+        EntityManager.entitiesToFrameUpdate.Add(this);
+        this.world = world;
+        this.hightlightBlock = hightlightBlock;
+        this.placeBlock = placeBlock;
+        this.placeBlockMesh = placeBlockMesh;
+        this.debugOverlay = debugOverlay;
+    }
+
+    public override void Start() {
         camera = GameObject.Find("Main Camera").transform;
+        playerGameObject = GameObject.Find("Player");
         world = GameObject.Find("World").GetComponent<World>();
         Cursor.lockState = CursorLockMode.Locked;
         playerInventory = new StorageInventory(100);
     }
 
-    private void Update() {
+    public override void Update() {
         GetPlayerInputs();
         placeCursorBlocks();
         UpdateDebugOverlay();
     }
 
-    private void FixedUpdate() {
-        CalculateVelocity();
+    public override void FixedUpdate() {
         if (jumpRequest)
             Jump();
+        CalculateVelocity();
+        Vector3 finalVelocity = MoveEntity(velocity, world);
+        if (finalVelocity.y == 0)
+            isGrounded = true;
+        else
+            isGrounded = false;
 
-        transform.Rotate(Vector3.up * mouseHorizontal * sensitivityMultiplier);
+        playerGameObject.transform.Rotate(Vector3.up * mouseHorizontal * sensitivityMultiplier);
         camera.Rotate(Vector3.right * -mouseVertical * sensitivityMultiplier);
-        transform.Translate(velocity, Space.World);
 
+        if (world.dropItem) {
+            world.dropItem = false;
+            Material[] mats = { world.material, world.transparentMaterial };
+            new ItemDrop(new Item(ItemTypes.STONE, 10), new Vector3(0, -0.25f, 0), playerGameObject.transform.position, world, mats);
+        }
     }
 
     private void UpdateDebugOverlay() {
-        if(Input.GetButtonDown("Toggle Debug Overlay")) {
+        if(Input.GetButtonDown("ToggleDebugOverlay")) {
             debugOverlayActive = !debugOverlayActive;
             debugOverlay.gameObject.SetActive(debugOverlayActive);
         }
         if (debugOverlayActive) {
-            Vector3 pos = world.GetFlooredVector3(transform.position);
+            Vector3 pos = World.GetFlooredVector3(playerGameObject.transform.position);
             debugOverlay.text = "Block Position: X: " + (int)pos.x + " Y: " + (int)pos.y + " Z: " + (int)pos.z +
                                 "\nChunk X: " + world.playerLastChunkCoord.x + " Y: " + Subchunk.GetSubchunkIndex((int)pos.y) + " Z: " + world.playerLastChunkCoord.z +
                                 "\nFPS: " + Mathf.FloorToInt(1f/Time.deltaTime);
-            if (Mathf.FloorToInt(1f / Time.deltaTime) < 15)
-                Debug.LogWarning("FPS Hit: " + Mathf.FloorToInt(1f / Time.deltaTime));
+            if (Mathf.FloorToInt(1f / Time.deltaTime) < 30)
+                Debug.Log("FPS Hit: " + Mathf.FloorToInt(1f / Time.deltaTime));
         }
     }
 
     private void CalculateVelocity() {
-        if (verticalMomentum > gravity)
-            verticalMomentum += Time.fixedDeltaTime * gravity;
+        if (verticalMomentum > world.gravity)
+            verticalMomentum += Time.fixedDeltaTime * world.gravity;
         //Horizontal movement
         if (isSprinting)
-            velocity = ((transform.forward * vertical) + (transform.right * horizontal)) * Time.fixedDeltaTime * sprintSpeed;
+            velocity = ((playerGameObject.transform.forward * vertical) + (playerGameObject.transform.right * horizontal)) * Time.fixedDeltaTime * sprintSpeed;
         else
-            velocity = ((transform.forward * vertical) + (transform.right * horizontal)) * Time.fixedDeltaTime * walkSpeed;
+            velocity = ((playerGameObject.transform.forward * vertical) + (playerGameObject.transform.right * horizontal)) * Time.fixedDeltaTime * walkSpeed;
         //Vertical movement
         velocity += Vector3.up * verticalMomentum * Time.fixedDeltaTime;
-        //Collision detection
-        if ((velocity.z > 0 && front) || (velocity.z < 0 && back))
-            velocity.z = 0;
-        if ((velocity.x > 0 && right) || (velocity.x < 0 && left))
-            velocity.x = 0;
-        if (velocity.y < 0)
-            velocity.y = checkDownSpeed(velocity.y);
-        else if (velocity.y > 0)
-            velocity.y = checkUpSpeed(velocity.y);
-
+        
     }
 
     private void Jump() {
@@ -138,26 +152,41 @@ public class Player : MonoBehaviour
                 world.GetChunk(placeBlock.position).EditVoxel(placeBlock.position, BlockTypes.ALL_BLOCKS[selectedBlockIndex]);
             }
         }
+
+        if(highlightedEntity != null) {
+            if (Input.GetButtonDown("EntityInteract"))
+                highlightedEntity.Interact(this);
+        }
     }
 
     private void placeCursorBlocks() {
         float step = checkIncrement;
         Vector3 lastPos = new Vector3();
+        BoundingBox pointerCheckBoundingBox = new BoundingBox(lastPos, 0.1f, 0.1f, 0.1f);
         while (step < reach) {
             Vector3 pos = camera.position + (camera.forward * step);
+            pointerCheckBoundingBox.UpdateLocation(pos);
+            Entity entityIntersecting = EntityManager.EntityIntersecting(pointerCheckBoundingBox, typeof(ItemDrop));
             if (world.CheckForVoxel(pos)) {
-                hightlightBlock.position = world.GetFlooredVector3(pos);
-                placeBlock.position = world.GetFlooredVector3(lastPos);
+                hightlightBlock.position = World.GetFlooredVector3(pos);
+                placeBlock.position = World.GetFlooredVector3(lastPos);
                 hightlightBlock.gameObject.SetActive(true);
                 placeBlock.gameObject.SetActive(true);
                 updatePlaceBlockType();
                 return;
+            } else if(entityIntersecting != null) { 
+                if (entityIntersecting.GetType().Equals(typeof(ItemDrop))) {
+                    highlightedEntity = entityIntersecting;
+                    return;
+                }
             }
-            lastPos = world.GetFlooredVector3(pos);
+            lastPos = World.GetFlooredVector3(pos);
             step += checkIncrement;
         }
+
         hightlightBlock.gameObject.SetActive(false);
         placeBlock.gameObject.SetActive(false);
+        highlightedEntity = null;
     }
 
     private void updatePlaceBlockType(){
@@ -202,59 +231,28 @@ public class Player : MonoBehaviour
         placeBlockMesh.mesh = mesh;
     }
 
-    private float checkDownSpeed(float downSpeed) {
-        if(world.CheckForVoxel(new Vector3(transform.position.x - playerWidth, transform.position.y + downSpeed, transform.position.z - playerWidth)) ||
-            world.CheckForVoxel(new Vector3(transform.position.x + playerWidth, transform.position.y + downSpeed, transform.position.z - playerWidth)) ||
-            world.CheckForVoxel(new Vector3(transform.position.x - playerWidth, transform.position.y + downSpeed, transform.position.z + playerWidth)) ||
-            world.CheckForVoxel(new Vector3(transform.position.x + playerWidth, transform.position.y + downSpeed, transform.position.z + playerWidth))){
-            isGrounded = true;
-            return 0;
-        }
-        isGrounded = false;
-        return downSpeed;
+    public void PickupItem(ItemDrop itemDrop) {
+        playerInventory.AddItem(itemDrop.GetItem());
+        itemDrop.Destroy();
     }
 
-    private float checkUpSpeed(float upSpeed) {
-        if(world.CheckForVoxel(new Vector3(transform.position.x - playerWidth, transform.position.y + 2f + upSpeed, transform.position.z - playerWidth)) ||
-            world.CheckForVoxel(new Vector3(transform.position.x + playerWidth, transform.position.y + 2f + upSpeed, transform.position.z - playerWidth)) ||
-            world.CheckForVoxel(new Vector3(transform.position.x - playerWidth, transform.position.y + 2f + upSpeed, transform.position.z + playerWidth)) ||
-            world.CheckForVoxel(new Vector3(transform.position.x + playerWidth, transform.position.y + 2f + upSpeed, transform.position.z + playerWidth))){
-            return 0;
-        }
-        return upSpeed;
+    public override BoundingBox GetEntityBoundingBox() {
+        BoundingBox playerBoundingBox = new BoundingBox(playerGameObject.transform.position, 0.7f, 2f, 0.7f);
+        playerBoundingBox.offsetCenterYOnly();
+        return playerBoundingBox;
     }
 
-    public bool front {
-        get {
-            return (world.CheckForVoxel(new Vector3(transform.position.x, transform.position.y, transform.position.z + playerWidth)) ||
-                world.CheckForVoxel(new Vector3(transform.position.x, transform.position.y + 1, transform.position.z + playerWidth)));
-        }
+    protected override void TranslateEntity(Vector3 velocity) {
+        playerGameObject.transform.Translate(velocity, Space.World);
     }
 
-    public bool back
-    {
-        get
-        {
-            return (world.CheckForVoxel(new Vector3(transform.position.x, transform.position.y, transform.position.z - playerWidth)) ||
-                world.CheckForVoxel(new Vector3(transform.position.x, transform.position.y + 1, transform.position.z - playerWidth)));
-        }
-    }
-    public bool left
-    {
-        get
-        {
-            return (world.CheckForVoxel(new Vector3(transform.position.x - playerWidth, transform.position.y, transform.position.z)) ||
-                world.CheckForVoxel(new Vector3(transform.position.x - playerWidth, transform.position.y + 1, transform.position.z)));
-        }
-    }
-    public bool right
-    {
-        get
-        {
-            return (world.CheckForVoxel(new Vector3(transform.position.x + playerWidth, transform.position.y, transform.position.z + playerWidth)) ||
-                world.CheckForVoxel(new Vector3(transform.position.x + playerWidth, transform.position.y + 1, transform.position.z + playerWidth)));
-        }
+    public override void Interact(Entity entity) {
+        throw new System.NotImplementedException();
     }
 
+    public Vector3 position { 
+        get { return playerGameObject.transform.position; }
+        set { playerGameObject.transform.position = value; }
+    }
 
 }

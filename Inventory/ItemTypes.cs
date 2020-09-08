@@ -29,5 +29,9 @@ public class ItemType{
         return itemName;
     }
 
+    public BlockType GetBlockType() {
+        return blockType;
+    }
+
 
 }
